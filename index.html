@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIRSPACE // XY + XZ PROFILE</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+    :root {
+      color-scheme: dark;
+      --bg: #000000;
+      --primary: #ff9d00;
+      --primary-dim: rgba(255, 157, 0, 0.24);
+      --primary-faint: rgba(255, 157, 0, 0.08);
+      --secondary: #ffffff;
+      --accent: #00ff88;
+      --danger: #ff3333;
+      --text: #ffbe55;
+      --muted: #8a5610;
+      --border: rgba(255, 157, 0, 0.28);
+      --font: 'Share Tech Mono', 'Consolas', 'Courier New', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #000000;
+      color: var(--primary);
+      font-family: var(--font);
+      overflow: hidden;
+      font-size: 12px;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-rows: 42px 1fr 26px;
+      grid-template-columns: 46fr 41fr 13fr;
+      grid-template-areas:
+        "header header header"
+        "map profile strips"
+        "footer footer footer";
+      width: 100vw;
+      height: 100vh;
+      background: #000000;
+    }
+
+    /* Header */
+    .header {
+      grid-area: header;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      letter-spacing: 2px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary);
+    }
+
+    .meta {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      color: var(--text);
+      font-size: 11px;
+      letter-spacing: 0.8px;
+      overflow: hidden;
+    }
+
+    .meta span.lbl {
+      color: var(--muted);
+      margin-right: 4px;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    button.btn, select.btn {
+      background: #000000;
+      color: var(--primary);
+      border: 1px solid var(--border);
+      padding: 4px 9px;
+      font-family: var(--font);
+      font-size: 11px;
+      letter-spacing: 0.8px;
+      cursor: pointer;
+      text-transform: uppercase;
+      outline: none;
+      transition: border-color 0.12s, background 0.12s;
+    }
+
+    button.btn:hover, select.btn:hover {
+      border-color: var(--primary);
+      background: var(--primary-faint);
+    }
+
+    button.btn.active {
+      background: var(--primary);
+      color: #000000;
+      border-color: var(--primary);
+      font-weight: bold;
+    }
+
+    /* Custom Pure-OLED Dropdown */
+    .dropdown {
+      position: relative;
+      display: inline-block;
+    }
+
+    .dropdown-menu {
+      position: absolute;
+      top: calc(100% + 2px);
+      right: 0;
+      min-width: 155px;
+      background: #000000;
+      border: 1px solid var(--primary);
+      display: none;
+      flex-direction: column;
+      z-index: 50;
+    }
+
+    .dropdown.open .dropdown-menu {
+      display: flex;
+    }
+
+    .dropdown-item {
+      background: #000000;
+      color: var(--primary);
+      border: none;
+      border-bottom: 1px solid var(--primary-faint);
+      padding: 6px 10px;
+      font-family: var(--font);
+      font-size: 11px;
+      letter-spacing: 0.8px;
+      text-align: left;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+
+    .dropdown-item:last-child {
+      border-bottom: none;
+    }
+
+    .dropdown-item:hover {
+      background: var(--primary-dim);
+      color: #ffb833;
+    }
+
+    .dropdown-item.active {
+      background: var(--primary);
+      color: #000000;
+      font-weight: bold;
+    }
+
+    /* Split Panes */
+    .pane {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      background: #000000;
+    }
+
+    .pane-map {
+      grid-area: map;
+      border-right: 1px solid var(--border);
+    }
+
+    .pane-profile {
+      grid-area: profile;
+    }
+
+    .pane-strips {
+      grid-area: strips;
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding-top: 34px;
+    }
+
+    .strips-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 5px 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--primary-dim) #000000;
+    }
+
+    .strip-card {
+      border: 1px solid var(--border);
+      background: #000000;
+      padding: 3px 5px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      transition: border-color 0.12s, background 0.12s;
+    }
+
+    .strip-card:hover {
+      border-color: var(--primary);
+      background: var(--primary-faint);
+    }
+
+    .strip-card.selected {
+      border-color: #ffb833;
+      background: rgba(255, 157, 0, 0.12);
+      box-shadow: inset 2px 0 0 #ffb833;
+    }
+
+    .strip-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .strip-cs {
+      font-size: 10px;
+      font-weight: bold;
+      color: #ffb833;
+      letter-spacing: 0.4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .strip-fl {
+      font-size: 9px;
+      font-weight: bold;
+      color: var(--primary);
+      white-space: nowrap;
+    }
+
+    .strip-bot {
+      display: flex;
+      justify-content: space-between;
+      font-size: 8.5px;
+      color: var(--muted);
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .strip-card.selected .strip-bot {
+      color: var(--text);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    canvas#mapCanvas {
+      cursor: grab;
+      touch-action: none;
+    }
+
+    canvas#mapCanvas.dragging {
+      cursor: grabbing;
+    }
+
+    canvas#xzCanvas {
+      cursor: crosshair;
+    }
+
+    /* Minimal Floating Pane Labels */
+    .pane-tag {
+      position: absolute;
+      top: 10px;
+      left: 14px;
+      pointer-events: none;
+      font-size: 10px;
+      letter-spacing: 1.6px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .pane-tag strong {
+      color: var(--primary);
+      font-weight: normal;
+    }
+
+    .pane-sub {
+      position: absolute;
+      top: 10px;
+      right: 14px;
+      pointer-events: none;
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .map-actions {
+      position: absolute;
+      bottom: 12px;
+      left: 14px;
+      display: flex;
+      gap: 4px;
+      z-index: 5;
+    }
+
+    /* Floating Selected Aircraft Info Window */
+    .info-win {
+      position: absolute;
+      bottom: 14px;
+      right: 14px;
+      width: 280px;
+      background: rgba(0, 0, 0, 0.94);
+      border: 1px solid var(--primary);
+      box-shadow: 0 0 18px rgba(255, 157, 0, 0.18);
+      padding: 10px 12px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 10;
+    }
+
+    .info-win.open {
+      display: flex;
+    }
+
+    .info-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+    }
+
+    .info-cs {
+      font-size: 20px;
+      font-weight: bold;
+      color: #ffb833;
+      letter-spacing: 2px;
+      text-shadow: 0 0 10px rgba(255, 157, 0, 0.5);
+    }
+
+    .info-sub {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .info-close {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--primary);
+      font-family: var(--font);
+      font-size: 11px;
+      padding: 1px 6px;
+      cursor: pointer;
+    }
+
+    .info-close:hover {
+      border-color: var(--primary);
+      background: var(--primary-faint);
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 10px;
+      font-size: 11px;
+    }
+
+    .info-cell .k {
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: 0.8px;
+    }
+
+    .info-cell .v {
+      color: var(--text);
+      font-weight: bold;
+      margin-top: 1px;
+    }
+
+    /* Footer */
+    .footer {
+      grid-area: footer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      border-top: 1px solid var(--border);
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: var(--muted);
+    }
+
+    .footer span.val {
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <!-- HEADER -->
+    <header class="header">
+      <div class="brand">
+        <div class="dot"></div>
+        <span>AIRSPACE // XY+XZ</span>
+      </div>
+
+      <div class="meta">
+        <div><span class="lbl">REF</span><span id="refReadout">VNO 54.634°N 25.286°E</span></div>
+        <div><span class="lbl">TRACKS</span><span id="countReadout">0</span></div>
+        <div><span class="lbl">FEED</span><span id="feedReadout">INIT</span></div>
+        <div><span class="lbl">UTC</span><span id="utcReadout">00:00:00Z</span></div>
+      </div>
+
+      <div class="controls">
+        <div class="dropdown" id="airportDropdown">
+          <button class="btn" id="btnAirport" title="Reference Airport / Origin">VNO // VILNIUS ▾</button>
+          <div class="dropdown-menu" id="airportMenu">
+            <button class="dropdown-item active" data-val="VNO">VNO // VILNIUS</button>
+            <button class="dropdown-item" data-val="KUN">KUN // KAUNAS</button>
+            <button class="dropdown-item" data-val="RIX">RIX // RIGA</button>
+            <button class="dropdown-item" data-val="WAW">WAW // WARSAW</button>
+            <button class="dropdown-item" data-val="BER">BER // BERLIN</button>
+            <button class="dropdown-item" data-val="FRA">FRA // FRANKFURT</button>
+            <button class="dropdown-item" data-val="LHR">LHR // LONDON</button>
+            <button class="dropdown-item" data-val="GPS">MY GPS</button>
+          </div>
+        </div>
+        <button class="btn active" id="btnMap" title="Toggle Vector Map (M)">MAP</button>
+        <button class="btn" id="btnSim" title="Toggle Simulation">SIM</button>
+        <button class="btn" id="btnWake" title="Keep Screen Awake">WAKE</button>
+        <button class="btn" id="btnFs" title="Fullscreen (F)">FULL</button>
+      </div>
+    </header>
+
+    <!-- LEFT: X/Y MAP -->
+    <section class="pane pane-map">
+      <canvas id="mapCanvas"></canvas>
+      <div class="pane-tag"><strong>01 / XY</strong> &nbsp; PLANAR MAP</div>
+      <div class="pane-sub" id="mapSub">RANGE 100 NM</div>
+
+      <div class="map-actions">
+        <button class="btn" id="btnHome" title="Recenter on Reference (R)">HOME</button>
+        <button class="btn range-btn" data-range="40">40NM</button>
+        <button class="btn range-btn active" data-range="100">100NM</button>
+        <button class="btn range-btn" data-range="180">180NM</button>
+      </div>
+    </section>
+
+    <!-- RIGHT: X/Z ALTITUDE VS DISTANCE -->
+    <section class="pane pane-profile">
+      <canvas id="xzCanvas"></canvas>
+      <div class="pane-tag"><strong>02 / XZ</strong> &nbsp; ALTITUDE × DISTANCE FROM <span id="xzRefCode">VNO</span></div>
+      <div class="pane-sub">FL000 – FL450</div>
+
+      <div class="info-win" id="infoWin">
+        <div class="info-head">
+          <div>
+            <div class="info-cs" id="iwCs">---</div>
+            <div class="info-sub" id="iwSub">TYPE --- // REG ---</div>
+          </div>
+          <button class="info-close" id="btnCloseInfo" title="Close">×</button>
+        </div>
+        <div class="info-grid">
+          <div class="info-cell"><div class="k">BARO ALT</div><div class="v" id="iwAlt">--</div></div>
+          <div class="info-cell"><div class="k">GEOM ALT</div><div class="v" id="iwAltG">--</div></div>
+          <div class="info-cell"><div class="k">GROUND SPD</div><div class="v" id="iwGs">--</div></div>
+          <div class="info-cell"><div class="k">IAS / MACH</div><div class="v" id="iwIas">--</div></div>
+          <div class="info-cell"><div class="k">TRACK</div><div class="v" id="iwTrk">--</div></div>
+          <div class="info-cell"><div class="k">VERT RATE</div><div class="v" id="iwVr">--</div></div>
+          <div class="info-cell"><div class="k">DIST / BRG</div><div class="v" id="iwDist">--</div></div>
+          <div class="info-cell"><div class="k">SQUAWK / CAT</div><div class="v" id="iwSqk">--</div></div>
+          <div class="info-cell" style="grid-column:span 2;"><div class="k">POSITION // ICAO HEX</div><div class="v" id="iwPos">--</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: ALTITUDE-SORTED FLIGHT STRIPS -->
+    <section class="pane pane-strips">
+      <div class="pane-tag"><strong>03 / FL</strong></div>
+      <div class="pane-sub" id="stripsSub">ALT</div>
+      <div class="strips-list" id="stripsList"></div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <div>STATUS: <span class="val" id="footerStatus">INITIALIZING...</span></div>
+      <div>[DRAG] PAN MAP &nbsp;|&nbsp; [WHEEL] ZOOM &nbsp;|&nbsp; [CLICK] SELECT &nbsp;|&nbsp; [R] HOME &nbsp;|&nbsp; [F] FULLSCREEN</div>
+    </footer>
+  </div>
+
+  <script>
+    (() => {
+      const EARTH_RADIUS_NM = 3440.065;
+      const POLL_MS = 8000;
+      const MAX_ALT_FT = 45000;
+
+      const AIRPORTS = {
+        VNO: { code: "VNO", name: "VILNIUS",   lat: 54.6341, lon: 25.2858 },
+        KUN: { code: "KUN", name: "KAUNAS",    lat: 54.9639, lon: 24.0848 },
+        RIX: { code: "RIX", name: "RIGA",      lat: 56.9236, lon: 23.9711 },
+        WAW: { code: "WAW", name: "WARSAW",    lat: 52.1657, lon: 20.9671 },
+        BER: { code: "BER", name: "BERLIN",    lat: 52.3667, lon: 13.5033 },
+        FRA: { code: "FRA", name: "FRANKFURT", lat: 50.0379, lon: 8.5622 },
+        LHR: { code: "LHR", name: "LONDON",    lat: 51.4700, lon: -0.4543 },
+      };
+
+      let ALL_AIRPORTS = [
+        { code: "VNO", lat: 54.6341, lon: 25.2858 },
+      ];
+
+      async function loadAirports() {
+        try {
+          const data = await fetchWithTimeout("./airports.json", 6000);
+          if (Array.isArray(data)) {
+            ALL_AIRPORTS = data.map(([code, lat, lon]) => ({ code, lat, lon }));
+            syncCenterReadouts();
+          }
+        } catch (_) {}
+      }
+
+      const state = {
+        refCode: "VNO",
+        refLat: AIRPORTS.VNO.lat,
+        refLon: AIRPORTS.VNO.lon,
+        lat: AIRPORTS.VNO.lat,
+        lon: AIRPORTS.VNO.lon,
+        rangeNm: 100,
+        mapEnabled: true,
+        simMode: false,
+        wakeLock: null,
+        planes: new Map(),
+        selectedHex: null,
+        lastPoll: 0,
+        mapRings: [],
+        mapCacheKey: "",
+        cachedMapPath: null,
+      };
+
+      const mapCanvas = document.getElementById("mapCanvas");
+      const mapCtx = mapCanvas.getContext("2d");
+      const xzCanvas = document.getElementById("xzCanvas");
+      const xzCtx = xzCanvas.getContext("2d");
+
+      const el = {
+        refReadout: document.getElementById("refReadout"),
+        countReadout: document.getElementById("countReadout"),
+        feedReadout: document.getElementById("feedReadout"),
+        utcReadout: document.getElementById("utcReadout"),
+        mapSub: document.getElementById("mapSub"),
+        xzRefCode: document.getElementById("xzRefCode"),
+        footerStatus: document.getElementById("footerStatus"),
+        infoWin: document.getElementById("infoWin"),
+        iwCs: document.getElementById("iwCs"),
+        iwSub: document.getElementById("iwSub"),
+        iwAlt: document.getElementById("iwAlt"),
+        iwAltG: document.getElementById("iwAltG"),
+        iwGs: document.getElementById("iwGs"),
+        iwIas: document.getElementById("iwIas"),
+        iwTrk: document.getElementById("iwTrk"),
+        iwVr: document.getElementById("iwVr"),
+        iwDist: document.getElementById("iwDist"),
+        iwSqk: document.getElementById("iwSqk"),
+        iwPos: document.getElementById("iwPos"),
+        stripsList: document.getElementById("stripsList"),
+      };
+
+      // --- GEO MATH ---
+      const toRad = (d) => (d * Math.PI) / 180;
+      const toDeg = (r) => (r * 180) / Math.PI;
+
+      function haversineNm(lat1, lon1, lat2, lon2) {
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+        return 2 * EARTH_RADIUS_NM * Math.asin(Math.min(1, Math.sqrt(a)));
+      }
+
+      function bearingDeg(lat1, lon1, lat2, lon2) {
+        const y = Math.sin(toRad(lon2 - lon1)) * Math.cos(toRad(lat2));
+        const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(toRad(lon2 - lon1));
+        return (toDeg(Math.atan2(y, x)) + 360) % 360;
+      }
+
+      function destinationPoint(lat, lon, distNm, brgDeg) {
+        const d = distNm / EARTH_RADIUS_NM;
+        const b = toRad(brgDeg);
+        const la1 = toRad(lat), lo1 = toRad(lon);
+        const la2 = Math.asin(Math.sin(la1) * Math.cos(d) + Math.cos(la1) * Math.sin(d) * Math.cos(b));
+        const lo2 = lo1 + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(la1), Math.cos(d) - Math.sin(la1) * Math.sin(la2));
+        return { lat: toDeg(la2), lon: toDeg(lo2) };
+      }
+
+      function formatCoords(lat, lon) {
+        const ns = lat >= 0 ? "N" : "S";
+        const ew = lon >= 0 ? "E" : "W";
+        return `${Math.abs(lat).toFixed(3)}°${ns} ${Math.abs(lon).toFixed(3)}°${ew}`;
+      }
+
+      // --- RESIZE ---
+      function resizeAll() {
+        const dpr = window.devicePixelRatio || 1;
+        for (const c of [mapCanvas, xzCanvas]) {
+          const r = c.parentElement.getBoundingClientRect();
+          c.width = Math.max(1, Math.floor(r.width * dpr));
+          c.height = Math.max(1, Math.floor(r.height * dpr));
+          c.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+      }
+      window.addEventListener("resize", resizeAll);
+      resizeAll();
+
+      // --- VECTOR MAP ---
+      async function fetchWithTimeout(url, ms = 7000) {
+        const ctrl = new AbortController();
+        const id = setTimeout(() => ctrl.abort(), ms);
+        try {
+          const res = await fetch(url, { signal: ctrl.signal });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return await res.json();
+        } finally {
+          clearTimeout(id);
+        }
+      }
+
+      async function loadWorldMap() {
+        const urls = ["./countries-50m.json", "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json"];
+        for (const url of urls) {
+          try {
+            const topo = await fetchWithTimeout(url, 8000);
+            const { scale = [1, 1], translate = [0, 0] } = topo.transform || {};
+            const arcs = topo.arcs.map((arc) => {
+              let x = 0, y = 0;
+              return arc.map((pt) => {
+                x += pt[0]; y += pt[1];
+                return [x * scale[0] + translate[0], y * scale[1] + translate[1]];
+              });
+            });
+            const stitch = (idxList) => {
+              const pts = [];
+              for (const idx of idxList) {
+                const a = idx >= 0 ? arcs[idx] : arcs[~idx].slice().reverse();
+                for (let i = pts.length ? 1 : 0; i < a.length; i++) pts.push(a[i]);
+              }
+              return pts;
+            };
+            const obj = topo.objects.countries || Object.values(topo.objects)[0];
+            const rings = [];
+            const addRing = (idxList) => {
+              const pts = stitch(idxList);
+              if (pts.length < 3) return;
+              let minLon = 180, maxLon = -180, minLat = 90, maxLat = -90;
+              for (const [lo, la] of pts) {
+                if (lo < minLon) minLon = lo; if (lo > maxLon) maxLon = lo;
+                if (la < minLat) minLat = la; if (la > maxLat) maxLat = la;
+              }
+              rings.push({ pts, minLon, maxLon, minLat, maxLat });
+            };
+            for (const g of obj.geometries) {
+              if (g.type === "Polygon") g.arcs.forEach(addRing);
+              else if (g.type === "MultiPolygon") g.arcs.forEach((p) => p.forEach(addRing));
+            }
+            state.mapRings = rings;
+            state.mapCacheKey = "";
+            return;
+          } catch (_) {}
+        }
+      }
+
+      function getMapPath(cx, cy, pxPerNm, w, h) {
+        const key = `${state.lat.toFixed(4)}|${state.lon.toFixed(4)}|${state.rangeNm}|${w.toFixed(0)}|${h.toFixed(0)}`;
+        if (key === state.mapCacheKey && state.cachedMapPath) return state.cachedMapPath;
+
+        const path = new Path2D();
+        const halfDiagNm = Math.hypot(w / 2, h / 2) / pxPerNm * 1.25;
+        const latPad = halfDiagNm / 60;
+        const lonPad = latPad / Math.max(0.2, Math.cos(toRad(state.lat)));
+        const minLat = state.lat - latPad, maxLat = state.lat + latPad;
+        const minLon = state.lon - lonPad, maxLon = state.lon + lonPad;
+
+        for (const ring of state.mapRings) {
+          if (ring.maxLat < minLat || ring.minLat > maxLat || ring.maxLon < minLon || ring.minLon > maxLon) continue;
+          let moved = false;
+          for (const [lon, lat] of ring.pts) {
+            const dist = haversineNm(state.lat, state.lon, lat, lon);
+            const brg = bearingDeg(state.lat, state.lon, lat, lon);
+            const r = dist * pxPerNm;
+            const rad = toRad(brg - 90);
+            const x = cx + Math.cos(rad) * r;
+            const y = cy + Math.sin(rad) * r;
+            if (!moved) { path.moveTo(x, y); moved = true; }
+            else path.lineTo(x, y);
+          }
+        }
+        state.mapCacheKey = key;
+        state.cachedMapPath = path;
+        return path;
+      }
+
+      // --- SIMULATION FALLBACK ---
+      let simFleet = [];
+      function initSimFleet() {
+        simFleet = [];
+        const prefixes = ["RYR", "BTI", "WZZ", "LOT", "DLH", "FIN", "SAS", "THY"];
+        const types = ["B738", "A223", "A320", "E195", "A321", "B789", "ATR72"];
+        for (let i = 0; i < 18; i++) {
+          const dist = 4 + Math.random() * (state.rangeNm * 0.9);
+          const brg = Math.random() * 360;
+          const pos = destinationPoint(state.refLat, state.refLon, dist, brg);
+          const hex = (0x400000 + i * 7919).toString(16).toUpperCase();
+          const alt = i < 4 ? Math.round(1500 + dist * 220) : Math.round(16000 + Math.random() * 24000);
+          simFleet.push({
+            hex,
+            callsign: prefixes[i % prefixes.length] + (100 + i * 37),
+            type: types[i % types.length],
+            reg: "LY-" + hex.slice(0, 3),
+            lat: pos.lat,
+            lon: pos.lon,
+            alt,
+            altGeom: alt + 350,
+            gs: alt < 10000 ? 180 + Math.round(Math.random() * 80) : 390 + Math.round(Math.random() * 110),
+            ias: alt < 10000 ? 175 : 265,
+            mach: alt < 10000 ? null : 0.78,
+            track: Math.round(Math.random() * 359),
+            vrate: i < 4 ? (i % 2 === 0 ? -1200 : 1600) : Math.round((Math.random() - 0.5) * 400),
+            squawk: "1000",
+            category: "A3",
+          });
+        }
+      }
+
+      function stepSimFleet(dtSec) {
+        if (!simFleet.length) initSimFleet();
+        return simFleet.map((p) => {
+          const next = destinationPoint(p.lat, p.lon, (p.gs / 3600) * dtSec, p.track);
+          p.lat = next.lat; p.lon = next.lon;
+          p.alt = Math.max(800, Math.min(43000, p.alt + (p.vrate / 60) * dtSec));
+          if (haversineNm(state.refLat, state.refLon, p.lat, p.lon) > state.rangeNm * 1.1) {
+            const re = destinationPoint(state.refLat, state.refLon, state.rangeNm * 0.9, Math.random() * 360);
+            p.lat = re.lat; p.lon = re.lon;
+            p.track = Math.round(bearingDeg(p.lat, p.lon, state.refLat, state.refLon));
+          }
+          return { ...p };
+        });
+      }
+
+      // --- LIVE ADS-B POLLING ---
+      function normalizeAdsb(acList) {
+        if (!Array.isArray(acList)) return [];
+        const out = [];
+        for (const ac of acList) {
+          if (typeof ac.lat !== "number" || typeof ac.lon !== "number") continue;
+          const alt = typeof ac.alt_baro === "number" ? ac.alt_baro : (typeof ac.alt_geom === "number" ? ac.alt_geom : 0);
+          out.push({
+            hex: String(ac.hex || "").toUpperCase(),
+            callsign: String(ac.flight || ac.r || ac.hex || "UNKN").trim(),
+            type: ac.t || "---",
+            reg: ac.r || "---",
+            lat: ac.lat,
+            lon: ac.lon,
+            alt: Math.round(alt),
+            altGeom: typeof ac.alt_geom === "number" ? Math.round(ac.alt_geom) : null,
+            gs: typeof ac.gs === "number" ? Math.round(ac.gs) : 0,
+            ias: typeof ac.ias === "number" ? Math.round(ac.ias) : null,
+            mach: typeof ac.mach === "number" ? ac.mach : null,
+            track: typeof ac.track === "number" ? Math.round(ac.track) : 0,
+            vrate: typeof ac.baro_rate === "number" ? Math.round(ac.baro_rate) : 0,
+            squawk: ac.squawk || "----",
+            category: ac.category || "--",
+          });
+        }
+        return out;
+      }
+
+      function getCenterCode() {
+        for (const ap of ALL_AIRPORTS) {
+          if (haversineNm(state.lat, state.lon, ap.lat, ap.lon) < 1.5) return ap.code;
+        }
+        return "CTR";
+      }
+
+      function syncCenterReadouts() {
+        const code = getCenterCode();
+        el.refReadout.textContent = `${code} ${formatCoords(state.lat, state.lon)}`;
+        el.xzRefCode.textContent = code;
+      }
+
+      async function pollAircraft() {
+        state.lastPoll = performance.now();
+        if (state.simMode) {
+          ingestAircraft(stepSimFleet(POLL_MS / 1000));
+          el.feedReadout.textContent = "SIMULATION";
+          el.footerStatus.textContent = "SIMULATION ACTIVE";
+          return;
+        }
+
+        const dist = Math.min(250, Math.max(25, state.rangeNm));
+        const urls = [];
+        if (window.location.protocol.startsWith("http")) {
+          urls.push({ name: "ADSB.LOL", url: `/api/adsb?lat=${state.lat.toFixed(4)}&lon=${state.lon.toFixed(4)}&dist=${dist}` });
+        }
+        urls.push({ name: "ADSB.LOL (DIRECT)", url: `https://api.adsb.lol/v2/lat/${state.lat.toFixed(4)}/lon/${state.lon.toFixed(4)}/dist/${dist}` });
+
+        for (const src of urls) {
+          try {
+            const data = await fetchWithTimeout(src.url, 6500);
+            const list = normalizeAdsb(data.ac);
+            ingestAircraft(list);
+            el.feedReadout.textContent = `LIVE:${src.name}`;
+            el.footerStatus.textContent = `SYNC OK [${src.name}] — ${list.length} TRACKS`;
+            return;
+          } catch (_) {}
+        }
+
+        if (window.location.protocol === "file:") {
+          state.simMode = true;
+          document.getElementById("btnSim").classList.add("active");
+          initSimFleet();
+          ingestAircraft(stepSimFleet(1));
+          el.feedReadout.textContent = "SIM (FILE://)";
+          el.footerStatus.textContent = "OPENED VIA FILE:// — RUN launch-xz.bat FOR LIVE DATA";
+        } else {
+          el.feedReadout.textContent = "RETRYING";
+          el.footerStatus.textContent = "FEED ERROR — RETRYING NEXT CYCLE";
+        }
+      }
+
+      function ingestAircraft(list) {
+        const now = performance.now();
+        const seen = new Set();
+        for (const raw of list) {
+          if (!raw.hex) continue;
+          const distRef = haversineNm(state.lat, state.lon, raw.lat, raw.lon);
+          seen.add(raw.hex);
+          const ex = state.planes.get(raw.hex);
+          if (ex) {
+            ex.history.push({ lat: ex.lat, lon: ex.lon });
+            if (ex.history.length > 8) ex.history.shift();
+            Object.assign(ex, raw, { distRef, lastSeen: now });
+          } else {
+            state.planes.set(raw.hex, { ...raw, distRef, lastSeen: now, history: [] });
+          }
+        }
+        for (const [hex, p] of state.planes.entries()) {
+          if (!seen.has(hex) && now - p.lastSeen > 35000) {
+            state.planes.delete(hex);
+            if (state.selectedHex === hex) state.selectedHex = null;
+          }
+        }
+        el.countReadout.textContent = state.planes.size;
+        updateSelectedFloat();
+      }
+
+      function renderStrips() {
+        const sorted = Array.from(state.planes.values()).sort((a, b) => b.alt - a.alt);
+        const frag = document.createDocumentFragment();
+        for (const p of sorted) {
+          const card = document.createElement("div");
+          card.className = "strip-card" + (p.hex === state.selectedHex ? " selected" : "");
+          const fl = p.alt >= 18000 ? `FL${Math.round(p.alt / 100)}` : `${p.alt.toLocaleString()}FT`;
+          const vr = p.vrate > 250 ? `▲+${p.vrate}` : p.vrate < -250 ? `▼${p.vrate}` : "—";
+          card.innerHTML = `
+            <div class="strip-top">
+              <span class="strip-cs">${p.callsign}</span>
+              <span class="strip-fl">${fl}</span>
+            </div>
+            <div class="strip-bot">
+              <span>${p.type} ${vr}</span>
+              <span>${p.distRef.toFixed(0)}NM</span>
+            </div>
+          `;
+          card.addEventListener("click", () => {
+            state.selectedHex = p.hex;
+            updateSelectedFloat();
+          });
+          frag.appendChild(card);
+        }
+        el.stripsList.innerHTML = "";
+        el.stripsList.appendChild(frag);
+      }
+
+      function updateSelectedFloat() {
+        renderStrips();
+        const p = state.planes.get(state.selectedHex);
+        if (!p) {
+          el.infoWin.classList.remove("open");
+          return;
+        }
+        el.infoWin.classList.add("open");
+        const brg = Math.round(bearingDeg(state.refLat, state.refLon, p.lat, p.lon));
+        const vr = p.vrate > 0 ? `+${p.vrate} FPM` : `${p.vrate} FPM`;
+        el.iwCs.textContent = p.callsign;
+        el.iwSub.textContent = `TYPE ${p.type}  //  REG ${p.reg || "---"}`;
+        el.iwAlt.textContent = `${p.alt.toLocaleString()} FT`;
+        el.iwAltG.textContent = p.altGeom != null ? `${p.altGeom.toLocaleString()} FT` : "--";
+        el.iwGs.textContent = `${p.gs} KTS`;
+        el.iwIas.textContent = `${p.ias != null ? p.ias + " KT" : "--"} / ${p.mach != null ? "M" + p.mach.toFixed(2) : "--"}`;
+        el.iwTrk.textContent = `${String(p.track).padStart(3, "0")}°`;
+        el.iwVr.textContent = vr;
+        el.iwDist.textContent = `${p.distRef.toFixed(1)} NM / ${String(brg).padStart(3, "0")}°`;
+        el.iwSqk.textContent = `${p.squawk} / ${p.category || "--"}`;
+        el.iwPos.textContent = `${formatCoords(p.lat, p.lon)}  //  HEX ${p.hex}`;
+      }
+
+      // --- RENDER LOOP (60 FPS) ---
+      function render(now) {
+        renderXY(now);
+        renderXZ(now);
+        requestAnimationFrame(render);
+      }
+
+      function renderXY(now) {
+        const rect = mapCanvas.parentElement.getBoundingClientRect();
+        const w = rect.width, h = rect.height;
+        const cx = w / 2, cy = h / 2;
+        const pxPerNm = Math.min(w, h) * 0.45 / state.rangeNm;
+
+        mapCtx.fillStyle = "#000000";
+        mapCtx.fillRect(0, 0, w, h);
+
+        // Dotted Lat/Lon Grid + Fiducial '+' Intersections
+        const degStep = state.rangeNm > 160 ? 2 : 1;
+        const cosLat = Math.max(0.2, Math.cos(toRad(state.lat)));
+        const halfLat = (h / 2) / (pxPerNm * 60) + degStep;
+        const halfLon = (w / 2) / (pxPerNm * 60 * cosLat) + degStep;
+        const laStart = Math.floor((state.lat - halfLat) / degStep) * degStep;
+        const loStart = Math.floor((state.lon - halfLon) / degStep) * degStep;
+
+        mapCtx.save();
+        mapCtx.setLineDash([1, 7]);
+        mapCtx.strokeStyle = "rgba(255, 157, 0, 0.14)";
+        mapCtx.lineWidth = 1;
+        mapCtx.beginPath();
+        for (let la = laStart; la <= state.lat + halfLat; la += degStep) {
+          const y = cy - (la - state.lat) * 60 * pxPerNm;
+          mapCtx.moveTo(0, y); mapCtx.lineTo(w, y);
+        }
+        for (let lo = loStart; lo <= state.lon + halfLon; lo += degStep) {
+          const x = cx + (lo - state.lon) * 60 * cosLat * pxPerNm;
+          mapCtx.moveTo(x, 0); mapCtx.lineTo(x, h);
+        }
+        mapCtx.stroke();
+        mapCtx.restore();
+
+        mapCtx.strokeStyle = "rgba(255, 157, 0, 0.28)";
+        mapCtx.lineWidth = 1;
+        mapCtx.beginPath();
+        for (let la = laStart; la <= state.lat + halfLat; la += degStep) {
+          const y = cy - (la - state.lat) * 60 * pxPerNm;
+          for (let lo = loStart; lo <= state.lon + halfLon; lo += degStep) {
+            const x = cx + (lo - state.lon) * 60 * cosLat * pxPerNm;
+            mapCtx.moveTo(x - 3, y); mapCtx.lineTo(x + 3, y);
+            mapCtx.moveTo(x, y - 3); mapCtx.lineTo(x, y + 3);
+          }
+        }
+        mapCtx.stroke();
+
+        // Vector Country Contours
+        if (state.mapEnabled && state.mapRings.length > 0) {
+          const path = getMapPath(cx, cy, pxPerNm, w, h);
+          mapCtx.fillStyle = "rgba(255, 157, 0, 0.025)";
+          mapCtx.fill(path);
+          mapCtx.strokeStyle = "rgba(255, 157, 0, 0.25)";
+          mapCtx.lineWidth = 1;
+          mapCtx.stroke(path);
+        }
+
+        // Nearby Airports on XY Map (fast bounding-box prefilter, clickable to center)
+        const apLatPad = (h / 2) / (pxPerNm * 60) + 0.5;
+        const apLonPad = (w / 2) / (pxPerNm * 60 * cosLat) + 0.5;
+        for (const ap of ALL_AIRPORTS) {
+          if (Math.abs(ap.lat - state.lat) > apLatPad || Math.abs(ap.lon - state.lon) > apLonPad) {
+            ap._xyX = undefined;
+            continue;
+          }
+          const aDist = haversineNm(state.lat, state.lon, ap.lat, ap.lon);
+          const aBrg = bearingDeg(state.lat, state.lon, ap.lat, ap.lon);
+          const aRad = toRad(aBrg - 90);
+          const ax = cx + Math.cos(aRad) * aDist * pxPerNm;
+          const ay = cy + Math.sin(aRad) * aDist * pxPerNm;
+          ap._xyX = ax; ap._xyY = ay;
+          if (ax < -20 || ax > w + 20 || ay < -20 || ay > h + 20) continue;
+
+          const isCenter = aDist < 1.5;
+          mapCtx.strokeStyle = isCenter ? "#ffb833" : "rgba(255, 157, 0, 0.55)";
+          mapCtx.lineWidth = isCenter ? 1.3 : 1;
+          mapCtx.beginPath();
+          mapCtx.moveTo(ax, ay - 4); mapCtx.lineTo(ax + 4, ay);
+          mapCtx.lineTo(ax, ay + 4); mapCtx.lineTo(ax - 4, ay);
+          mapCtx.closePath();
+          mapCtx.stroke();
+
+          mapCtx.fillStyle = isCenter ? "#ffb833" : "rgba(255, 157, 0, 0.72)";
+          mapCtx.font = isCenter ? "bold 10px 'Share Tech Mono', monospace" : "9px 'Share Tech Mono', monospace";
+          mapCtx.fillText(ap.code, ax + 6, ay + 3);
+        }
+
+        // Dynamic Map Center Crosshair (0 NM on XZ)
+        mapCtx.strokeStyle = "rgba(255, 184, 51, 0.75)";
+        mapCtx.lineWidth = 1;
+        mapCtx.beginPath();
+        mapCtx.moveTo(cx - 8, cy); mapCtx.lineTo(cx + 8, cy);
+        mapCtx.moveTo(cx, cy - 8); mapCtx.lineTo(cx, cy + 8);
+        mapCtx.stroke();
+
+        const rx = cx, ry = cy;
+
+        // Aircraft
+        for (const p of state.planes.values()) {
+          const dtSec = Math.min(12, (now - p.lastSeen) / 1000);
+          const est = destinationPoint(p.lat, p.lon, (p.gs / 3600) * dtSec, p.track);
+          const d = haversineNm(state.lat, state.lon, est.lat, est.lon);
+          const b = bearingDeg(state.lat, state.lon, est.lat, est.lon);
+          const rad = toRad(b - 90);
+          const px = cx + Math.cos(rad) * d * pxPerNm;
+          const py = cy + Math.sin(rad) * d * pxPerNm;
+          p._xyX = px; p._xyY = py;
+
+          if (px < -40 || px > w + 40 || py < -40 || py > h + 40) continue;
+          const isSel = p.hex === state.selectedHex;
+          const col = isSel ? "#ffb833" : "#ff9d00";
+
+          // History breadcrumb trail
+          mapCtx.fillStyle = "rgba(255, 157, 0, 0.28)";
+          for (const hPt of p.history) {
+            const hd = haversineNm(state.lat, state.lon, hPt.lat, hPt.lon);
+            const hb = bearingDeg(state.lat, state.lon, hPt.lat, hPt.lon);
+            const hrad = toRad(hb - 90);
+            mapCtx.fillRect(cx + Math.cos(hrad) * hd * pxPerNm - 1, cy + Math.sin(hrad) * hd * pxPerNm - 1, 2, 2);
+          }
+
+          if (isSel) {
+            // Dotted radial vector from Reference Airport to Selected Aircraft
+            mapCtx.save();
+            mapCtx.setLineDash([2, 4]);
+            mapCtx.strokeStyle = "rgba(255, 184, 51, 0.5)";
+            mapCtx.lineWidth = 1;
+            mapCtx.beginPath();
+            mapCtx.moveTo(rx, ry);
+            mapCtx.lineTo(px, py);
+            mapCtx.stroke();
+            mapCtx.restore();
+
+            const mx = (rx + px) * 0.5;
+            const my = (ry + py) * 0.5;
+            const brgRef = Math.round(bearingDeg(state.lat, state.lon, est.lat, est.lon));
+            mapCtx.fillStyle = "rgba(255, 184, 51, 0.78)";
+            mapCtx.font = "9px 'Share Tech Mono', monospace";
+            mapCtx.fillText(`${d.toFixed(1)}NM · ${String(brgRef).padStart(3, "0")}°`, mx + 6, my - 4);
+
+            // 4-corner targeting brackets
+            const b = 11;
+            mapCtx.strokeStyle = "#ffb833";
+            mapCtx.lineWidth = 1.2;
+            mapCtx.beginPath();
+            mapCtx.moveTo(px - b, py - b + 4); mapCtx.lineTo(px - b, py - b); mapCtx.lineTo(px - b + 4, py - b);
+            mapCtx.moveTo(px + b - 4, py - b); mapCtx.lineTo(px + b, py - b); mapCtx.lineTo(px + b, py - b + 4);
+            mapCtx.moveTo(px - b, py + b - 4); mapCtx.lineTo(px - b, py + b); mapCtx.lineTo(px - b + 4, py + b);
+            mapCtx.moveTo(px + b - 4, py + b); mapCtx.lineTo(px + b, py + b); mapCtx.lineTo(px + b, py + b - 4);
+            mapCtx.stroke();
+          }
+
+          // Leader
+          const hdgRad = toRad(p.track - 90);
+          const lLen = Math.min(22, Math.max(8, p.gs / 24));
+          mapCtx.strokeStyle = col;
+          mapCtx.lineWidth = isSel ? 1.8 : 1;
+          mapCtx.beginPath();
+          mapCtx.moveTo(px, py);
+          mapCtx.lineTo(px + Math.cos(hdgRad) * lLen, py + Math.sin(hdgRad) * lLen);
+          mapCtx.stroke();
+
+          // Chevron
+          mapCtx.save();
+          mapCtx.translate(px, py);
+          mapCtx.rotate(hdgRad);
+          mapCtx.fillStyle = col;
+          mapCtx.beginPath();
+          const s = isSel ? 1.35 : 1;
+          mapCtx.moveTo(5 * s, 0); mapCtx.lineTo(-3.5 * s, -3 * s); mapCtx.lineTo(-1.5 * s, 0); mapCtx.lineTo(-3.5 * s, 3 * s);
+          mapCtx.closePath();
+          mapCtx.fill();
+          mapCtx.restore();
+
+          // Floating minimal callsign
+          mapCtx.fillStyle = isSel ? "#ffb833" : "#ff9d00";
+          mapCtx.font = isSel ? "bold 11px 'Share Tech Mono', monospace" : "10px 'Share Tech Mono', monospace";
+          mapCtx.fillText(p.callsign, px + 10, py - 2);
+        }
+      }
+
+      // --- RIGHT PANE: X/Z ALTITUDE VS DISTANCE + FLOATING LABELS ---
+      function renderXZ(now) {
+        const rect = xzCanvas.parentElement.getBoundingClientRect();
+        const w = rect.width, h = rect.height;
+        const padL = 54, padR = 24, padT = 42, padB = 46;
+        const plotW = Math.max(80, w - padL - padR);
+        const plotH = Math.max(80, h - padT - padB);
+
+        xzCtx.fillStyle = "#000000";
+        xzCtx.fillRect(0, 0, w, h);
+
+        // Dotted Altitude Horizontal Lines (FL000..FL400) + Vernier Ticks
+        xzCtx.font = "10px 'Share Tech Mono', monospace";
+        for (let alt = 0; alt <= 40000; alt += 10000) {
+          const y = padT + plotH - (alt / MAX_ALT_FT) * plotH;
+          xzCtx.save();
+          if (alt > 0) xzCtx.setLineDash([1, 5]);
+          xzCtx.strokeStyle = alt === 0 ? "rgba(255, 157, 0, 0.45)" : "rgba(255, 157, 0, 0.16)";
+          xzCtx.lineWidth = 1;
+          xzCtx.beginPath();
+          xzCtx.moveTo(padL, y);
+          xzCtx.lineTo(padL + plotW, y);
+          xzCtx.stroke();
+          xzCtx.restore();
+
+          xzCtx.fillStyle = "#8a5610";
+          const label = alt === 0 ? "GND" : `FL${alt / 100}`;
+          xzCtx.fillText(label, 10, y + 3);
+        }
+
+        // Z-axis vernier micro-ticks every 2,500 FT
+        xzCtx.strokeStyle = "rgba(255, 157, 0, 0.35)";
+        xzCtx.lineWidth = 1;
+        xzCtx.beginPath();
+        for (let alt = 0; alt <= MAX_ALT_FT; alt += 2500) {
+          const y = padT + plotH - (alt / MAX_ALT_FT) * plotH;
+          const tick = alt % 10000 === 0 ? 6 : 3;
+          xzCtx.moveTo(padL - tick, y);
+          xzCtx.lineTo(padL, y);
+        }
+        xzCtx.stroke();
+
+        // Dotted Distance Vertical Lines + X-axis Vernier Ticks
+        const centerCode = getCenterCode();
+        const stepNm = state.rangeNm <= 50 ? 10 : state.rangeNm <= 120 ? 25 : 50;
+        for (let nm = 0; nm <= state.rangeNm; nm += stepNm) {
+          const x = padL + (nm / state.rangeNm) * plotW;
+          xzCtx.save();
+          if (nm > 0) xzCtx.setLineDash([1, 5]);
+          xzCtx.strokeStyle = nm === 0 ? "rgba(255, 157, 0, 0.35)" : "rgba(255, 157, 0, 0.14)";
+          xzCtx.beginPath();
+          xzCtx.moveTo(x, padT);
+          xzCtx.lineTo(x, padT + plotH);
+          xzCtx.stroke();
+          xzCtx.restore();
+
+          xzCtx.fillStyle = nm === 0 ? "#ff9d00" : "#8a5610";
+          xzCtx.fillText(nm === 0 ? centerCode : `${nm}NM`, x - 10, padT + plotH + 16);
+        }
+
+        const microNm = state.rangeNm <= 60 ? 2 : state.rangeNm <= 150 ? 5 : 10;
+        xzCtx.strokeStyle = "rgba(255, 157, 0, 0.35)";
+        xzCtx.beginPath();
+        for (let nm = 0; nm <= state.rangeNm; nm += microNm) {
+          const x = padL + (nm / state.rangeNm) * plotW;
+          const tick = nm % stepNm === 0 ? 6 : 3;
+          xzCtx.moveTo(x, padT + plotH);
+          xzCtx.lineTo(x, padT + plotH + tick);
+        }
+        xzCtx.stroke();
+
+        // 3-degree ILS Glide Slope Corridor (0 NM -> 30 NM, ~318 ft/NM)
+        const glideNm = Math.min(30, state.rangeNm);
+        const glideAlt = glideNm * 318.4;
+        const gx1 = padL, gy1 = padT + plotH;
+        const gx2 = padL + (glideNm / state.rangeNm) * plotW;
+        const gy2 = padT + plotH - (glideAlt / MAX_ALT_FT) * plotH;
+        xzCtx.save();
+        xzCtx.setLineDash([4, 4]);
+        xzCtx.strokeStyle = "rgba(255, 157, 0, 0.32)";
+        xzCtx.lineWidth = 1;
+        xzCtx.beginPath();
+        xzCtx.moveTo(gx1, gy1);
+        xzCtx.lineTo(gx2, gy2);
+        xzCtx.stroke();
+        xzCtx.restore();
+        xzCtx.fillStyle = "rgba(255, 157, 0, 0.55)";
+        xzCtx.fillText("3° ILS", gx2 + 4, gy2 + 3);
+
+        // Other Airports in XZ Distance Range (relative to current map center)
+        const xzLatPad = state.rangeNm / 60 + 0.5;
+        const xzLonPad = xzLatPad / Math.max(0.2, Math.cos(toRad(state.lat)));
+        const nearbyAps = ALL_AIRPORTS
+          .filter((ap) => Math.abs(ap.lat - state.lat) <= xzLatPad && Math.abs(ap.lon - state.lon) <= xzLonPad)
+          .map((ap) => ({ ap, dist: haversineNm(state.lat, state.lon, ap.lat, ap.lon) }))
+          .filter((x) => x.dist >= 1.5 && x.dist <= state.rangeNm)
+          .sort((a, b) => a.dist - b.dist)
+          .slice(0, 14);
+
+        let lastApX = -100;
+        let apRow = 0;
+        for (const { ap, dist } of nearbyAps) {
+          const ax = padL + (dist / state.rangeNm) * plotW;
+          const ay = padT + plotH;
+
+          // Dotted vertical airport guide
+          xzCtx.save();
+          xzCtx.setLineDash([2, 6]);
+          xzCtx.strokeStyle = "rgba(255, 157, 0, 0.25)";
+          xzCtx.lineWidth = 1;
+          xzCtx.beginPath();
+          xzCtx.moveTo(ax, padT + 14);
+          xzCtx.lineTo(ax, ay);
+          xzCtx.stroke();
+          xzCtx.restore();
+
+          // Small triangle marker on GND baseline
+          xzCtx.fillStyle = "#ff9d00";
+          xzCtx.beginPath();
+          xzCtx.moveTo(ax, ay - 5);
+          xzCtx.lineTo(ax + 3.5, ay);
+          xzCtx.lineTo(ax - 3.5, ay);
+          xzCtx.closePath();
+          xzCtx.fill();
+
+          // Stagger label if close to previous airport
+          apRow = (ax - lastApX < 28) ? (apRow + 1) % 2 : 0;
+          lastApX = ax;
+          xzCtx.fillStyle = "rgba(255, 184, 51, 0.85)";
+          xzCtx.font = "9px 'Share Tech Mono', monospace";
+          xzCtx.fillText(ap.code, ax - 8, ay + 28 + apRow * 10);
+        }
+
+        // Collect visible planes in X/Z range and sort by distance from map center
+        const items = [];
+        for (const p of state.planes.values()) {
+          const dtSec = Math.min(12, (now - p.lastSeen) / 1000);
+          const est = destinationPoint(p.lat, p.lon, (p.gs / 3600) * dtSec, p.track);
+          const dist = haversineNm(state.lat, state.lon, est.lat, est.lon);
+          if (dist > state.rangeNm) continue;
+
+          const alt = Math.max(0, Math.min(MAX_ALT_FT, p.alt + (p.vrate / 60) * dtSec));
+          const px = padL + (dist / state.rangeNm) * plotW;
+          const py = padT + plotH - (alt / MAX_ALT_FT) * plotH;
+          p._xzX = px; p._xzY = py;
+
+          items.push({ p, px, py, dist, alt });
+        }
+        items.sort((a, b) => a.px - b.px);
+
+        // Simple vertical label collision avoidance for floating callouts
+        const placedBoxes = [];
+        const labelW = 108, labelH = 22;
+
+        for (const item of items) {
+          const { p, px, py, dist, alt } = item;
+          const isSel = p.hex === state.selectedHex;
+          const col = isSel ? "#ffb833" : "#ff9d00";
+
+          // Dotted vertical stem to ground baseline
+          xzCtx.save();
+          xzCtx.setLineDash([1, 3]);
+          xzCtx.strokeStyle = isSel ? "rgba(255, 184, 51, 0.55)" : "rgba(255, 157, 0, 0.22)";
+          xzCtx.lineWidth = isSel ? 1.2 : 1;
+          xzCtx.beginPath();
+          xzCtx.moveTo(px, py);
+          xzCtx.lineTo(px, padT + plotH);
+          xzCtx.stroke();
+          xzCtx.restore();
+
+          // Aircraft node + 4-corner targeting brackets + axis projection
+          if (isSel) {
+            xzCtx.save();
+            xzCtx.setLineDash([2, 4]);
+            xzCtx.strokeStyle = "rgba(255, 184, 51, 0.32)";
+            xzCtx.lineWidth = 1;
+            xzCtx.beginPath();
+            xzCtx.moveTo(padL, py);
+            xzCtx.lineTo(px, py);
+            xzCtx.stroke();
+            xzCtx.restore();
+
+            const b = 8;
+            xzCtx.strokeStyle = "#ffb833";
+            xzCtx.lineWidth = 1.2;
+            xzCtx.beginPath();
+            xzCtx.moveTo(px - b, py - b + 3); xzCtx.lineTo(px - b, py - b); xzCtx.lineTo(px - b + 3, py - b);
+            xzCtx.moveTo(px + b - 3, py - b); xzCtx.lineTo(px + b, py - b); xzCtx.lineTo(px + b, py - b + 3);
+            xzCtx.moveTo(px - b, py + b - 3); xzCtx.lineTo(px - b, py + b); xzCtx.lineTo(px - b + 3, py + b);
+            xzCtx.moveTo(px + b - 3, py + b); xzCtx.lineTo(px + b, py + b); xzCtx.lineTo(px + b, py + b - 3);
+            xzCtx.stroke();
+          }
+          xzCtx.fillStyle = col;
+          xzCtx.beginPath();
+          xzCtx.arc(px, py, isSel ? 3.5 : 2.5, 0, Math.PI * 2);
+          xzCtx.fill();
+
+          // 90-second projected X/Z trajectory vector
+          const futurePos = destinationPoint(p.lat, p.lon, (p.gs / 3600) * 90, p.track);
+          const futureDist = haversineNm(state.lat, state.lon, futurePos.lat, futurePos.lon);
+          const futureAlt = Math.max(0, Math.min(MAX_ALT_FT, alt + (p.vrate / 60) * 90));
+          const fpx = padL + (futureDist / state.rangeNm) * plotW;
+          const fpy = padT + plotH - (futureAlt / MAX_ALT_FT) * plotH;
+          xzCtx.strokeStyle = isSel ? "rgba(255, 184, 51, 0.85)" : "rgba(255, 157, 0, 0.45)";
+          xzCtx.lineWidth = isSel ? 1.4 : 1;
+          xzCtx.beginPath();
+          xzCtx.moveTo(px, py);
+          xzCtx.lineTo(fpx, fpy);
+          xzCtx.stroke();
+
+          // Place floating label without overlapping previous labels
+          let lx = Math.min(padL + plotW - labelW, px + 10);
+          let ly = Math.max(padT + 4, Math.min(padT + plotH - labelH, py - 14));
+
+          for (let attempt = 0; attempt < 8; attempt++) {
+            const overlaps = placedBoxes.some((b) =>
+              lx < b.x + b.w && lx + labelW > b.x && ly < b.y + b.h && ly + labelH > b.y
+            );
+            if (!overlaps) break;
+            ly -= 20;
+            if (ly < padT) ly = py + 12 + attempt * 14;
+          }
+          placedBoxes.push({ x: lx, y: ly, w: labelW, h: labelH });
+
+          // Floating leader line from dot to floating label
+          xzCtx.strokeStyle = isSel ? "rgba(255, 184, 51, 0.75)" : "rgba(255, 157, 0, 0.35)";
+          xzCtx.lineWidth = isSel ? 1.2 : 1;
+          xzCtx.beginPath();
+          xzCtx.moveTo(px, py);
+          xzCtx.lineTo(lx - 2, ly + 8);
+          xzCtx.stroke();
+
+          // Floating label text (pure amber vacuum tube style)
+          xzCtx.fillStyle = isSel ? "#ffb833" : "#ff9d00";
+          xzCtx.font = isSel ? "bold 11px 'Share Tech Mono', monospace" : "10px 'Share Tech Mono', monospace";
+          const vrArrow = p.vrate > 250 ? "▲" : p.vrate < -250 ? "▼" : "";
+          xzCtx.fillText(`${p.callsign} ${vrArrow}`, lx, ly + 9);
+
+          xzCtx.fillStyle = isSel ? "#ff9d00" : "#8a5610";
+          xzCtx.font = isSel ? "bold 9px 'Share Tech Mono', monospace" : "9px 'Share Tech Mono', monospace";
+          const flStr = alt >= 18000 ? `FL${Math.round(alt / 100)}` : `${Math.round(alt)}FT`;
+          xzCtx.fillText(`${flStr} · ${dist.toFixed(1)}NM`, lx, ly + 19);
+        }
+      }
+
+      // --- INTERACTIONS (1-FINGER PAN, 2-FINGER PINCH ZOOM, WHEEL ZOOM) ---
+      const activePointers = new Map();
+      let drag = { active: false, moved: false, sx: 0, sy: 0, sLat: 0, sLon: 0 };
+      let pinch = { active: false, startDist: 0, startRange: 100 };
+
+      function updateZoomUI() {
+        el.mapSub.textContent = `RANGE ${state.rangeNm} NM`;
+        document.querySelectorAll(".range-btn").forEach((b) => {
+          b.classList.toggle("active", Number(b.dataset.range) === state.rangeNm);
+        });
+      }
+
+      mapCanvas.addEventListener("pointerdown", (e) => {
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        try { mapCanvas.setPointerCapture(e.pointerId); } catch (_) {}
+
+        if (activePointers.size === 1) {
+          drag = { active: true, moved: false, sx: e.clientX, sy: e.clientY, sLat: state.lat, sLon: state.lon };
+          pinch.active = false;
+          mapCanvas.classList.add("dragging");
+        } else if (activePointers.size === 2) {
+          const pts = Array.from(activePointers.values());
+          pinch.startDist = Math.max(10, Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y));
+          pinch.startRange = state.rangeNm;
+          pinch.active = true;
+          drag.active = false;
+          drag.moved = true;
+        }
+      });
+
+      mapCanvas.addEventListener("pointermove", (e) => {
+        if (!activePointers.has(e.pointerId)) return;
+        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        if (pinch.active && activePointers.size >= 2) {
+          const pts = Array.from(activePointers.values());
+          const currDist = Math.max(10, Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y));
+          state.rangeNm = Math.round(Math.max(15, Math.min(350, pinch.startRange * (pinch.startDist / currDist))));
+          updateZoomUI();
+          return;
+        }
+
+        if (!drag.active) return;
+        const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+        if (Math.hypot(dx, dy) > 4) drag.moved = true;
+        if (!drag.moved) return;
+
+        const r = mapCanvas.parentElement.getBoundingClientRect();
+        const pxPerNm = Math.min(r.width, r.height) * 0.45 / state.rangeNm;
+        const dLat = (dy / pxPerNm) / 60;
+        const dLon = (-dx / pxPerNm) / (60 * Math.max(0.2, Math.cos(toRad(drag.sLat))));
+        state.lat = Math.max(-85, Math.min(85, drag.sLat + dLat));
+        state.lon = ((drag.sLon + dLon + 540) % 360) - 180;
+        syncCenterReadouts();
+      });
+
+      let panPollTimer = null;
+      function schedulePanPoll() {
+        clearTimeout(panPollTimer);
+        panPollTimer = setTimeout(() => pollAircraft(), 300);
+      }
+
+      function endMapDrag(e) {
+        activePointers.delete(e.pointerId);
+        try { mapCanvas.releasePointerCapture(e.pointerId); } catch (_) {}
+
+        if (activePointers.size === 1) {
+          // Smoothly transition from 2-finger pinch back to 1-finger pan without jumping
+          const rem = Array.from(activePointers.values())[0];
+          pinch.active = false;
+          drag = { active: true, moved: true, sx: rem.x, sy: rem.y, sLat: state.lat, sLon: state.lon };
+          return;
+        }
+
+        const wasPinch = pinch.active;
+        const moved = drag.moved;
+        pinch.active = false;
+        drag.active = false;
+        mapCanvas.classList.remove("dragging");
+
+        if (moved || wasPinch) {
+          schedulePanPoll();
+          return;
+        }
+
+        const r = mapCanvas.getBoundingClientRect();
+        const mx = e.clientX - r.left, my = e.clientY - r.top;
+        if (selectNearest(mx, my, "_xyX", "_xyY")) return;
+
+        // If no plane clicked, check if user clicked an airport diamond to center on it
+        let bestAp = null, bestApD = 26;
+        for (const ap of ALL_AIRPORTS) {
+          if (typeof ap._xyX !== "number") continue;
+          const d = Math.hypot(ap._xyX - mx, ap._xyY - my);
+          if (d < bestApD) { bestApD = d; bestAp = ap; }
+        }
+        if (bestAp) {
+          state.lat = bestAp.lat;
+          state.lon = bestAp.lon;
+          syncCenterReadouts();
+          pollAircraft();
+        }
+      }
+      mapCanvas.addEventListener("pointerup", endMapDrag);
+      mapCanvas.addEventListener("pointercancel", endMapDrag);
+
+      xzCanvas.addEventListener("click", (e) => {
+        const r = xzCanvas.getBoundingClientRect();
+        selectNearest(e.clientX - r.left, e.clientY - r.top, "_xzX", "_xzY");
+      });
+
+      function selectNearest(mx, my, xKey, yKey) {
+        let best = null, bestD = 30;
+        for (const p of state.planes.values()) {
+          if (typeof p[xKey] !== "number") continue;
+          const d = Math.hypot(p[xKey] - mx, p[yKey] - my);
+          if (d < bestD) { bestD = d; best = p; }
+        }
+        if (best) {
+          state.selectedHex = best.hex;
+          updateSelectedFloat();
+          return true;
+        }
+        return false;
+      }
+
+      mapCanvas.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        const factor = e.deltaY > 0 ? 1.15 : 0.87;
+        state.rangeNm = Math.round(Math.max(15, Math.min(350, state.rangeNm * factor)));
+        el.mapSub.textContent = `RANGE ${state.rangeNm} NM`;
+        document.querySelectorAll(".range-btn").forEach((b) => {
+          b.classList.toggle("active", Number(b.dataset.range) === state.rangeNm);
+        });
+      }, { passive: false });
+
+      function setReference(code, lat, lon) {
+        state.refCode = code;
+        state.refLat = lat;
+        state.refLon = lon;
+        state.lat = lat;
+        state.lon = lon;
+        state.planes.clear();
+        el.refReadout.textContent = `${code} ${formatCoords(lat, lon)}`;
+        el.xzRefCode.textContent = code;
+        if (state.simMode) initSimFleet();
+        pollAircraft();
+      }
+
+      const airportDropdown = document.getElementById("airportDropdown");
+      const btnAirport = document.getElementById("btnAirport");
+      btnAirport.addEventListener("click", (e) => {
+        e.stopPropagation();
+        airportDropdown.classList.toggle("open");
+      });
+      document.addEventListener("click", () => airportDropdown.classList.remove("open"));
+
+      document.querySelectorAll(".dropdown-item").forEach((item) => {
+        item.addEventListener("click", () => {
+          const val = item.dataset.val;
+          document.querySelectorAll(".dropdown-item").forEach((i) => i.classList.remove("active"));
+          item.classList.add("active");
+          btnAirport.textContent = item.textContent + " ▾";
+          airportDropdown.classList.remove("open");
+
+          if (val === "GPS" && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition((pos) => {
+              setReference("GPS", pos.coords.latitude, pos.coords.longitude);
+            });
+          } else if (AIRPORTS[val]) {
+            setReference(val, AIRPORTS[val].lat, AIRPORTS[val].lon);
+          }
+        });
+      });
+
+      document.querySelectorAll(".range-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".range-btn").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          state.rangeNm = Number(btn.dataset.range);
+          el.mapSub.textContent = `RANGE ${state.rangeNm} NM`;
+          pollAircraft();
+        });
+      });
+
+      function recenter() {
+        state.lat = state.refLat;
+        state.lon = state.refLon;
+      }
+      document.getElementById("btnHome").addEventListener("click", recenter);
+      document.getElementById("btnCloseInfo").addEventListener("click", () => {
+        state.selectedHex = null;
+        updateSelectedFloat();
+      });
+
+      document.getElementById("btnMap").addEventListener("click", (e) => {
+        state.mapEnabled = !state.mapEnabled;
+        e.currentTarget.classList.toggle("active", state.mapEnabled);
+      });
+
+      document.getElementById("btnSim").addEventListener("click", (e) => {
+        state.simMode = !state.simMode;
+        e.currentTarget.classList.toggle("active", state.simMode);
+        state.planes.clear();
+        if (state.simMode) initSimFleet();
+        pollAircraft();
+      });
+
+      function toggleFullscreen() {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+        else document.exitFullscreen().catch(() => {});
+      }
+      document.getElementById("btnFs").addEventListener("click", toggleFullscreen);
+
+      document.getElementById("btnWake").addEventListener("click", async (e) => {
+        const btn = e.currentTarget;
+        if (state.wakeLock) {
+          await state.wakeLock.release();
+          state.wakeLock = null;
+          btn.classList.remove("active");
+        } else if ("wakeLock" in navigator) {
+          try {
+            state.wakeLock = await navigator.wakeLock.request("screen");
+            btn.classList.add("active");
+          } catch (_) {}
+        }
+      });
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "f" || e.key === "F") toggleFullscreen();
+        if (e.key === "r" || e.key === "R") recenter();
+        if (e.key === "m" || e.key === "M") document.getElementById("btnMap").click();
+      });
+
+      // --- BOOT ---
+      setInterval(() => {
+        el.utcReadout.textContent = new Date().toISOString().slice(11, 19) + "Z";
+      }, 1000);
+      loadWorldMap();
+      loadAirports();
+      pollAircraft();
+      setInterval(pollAircraft, POLL_MS);
+      requestAnimationFrame(render);
+    })();
+  </script>
+</body>
+</html>
