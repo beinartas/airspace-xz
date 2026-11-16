@@ -639,15 +639,21 @@
       resizeAll();
 
       // --- VECTOR MAP ---
-      async function fetchWithTimeout(url, ms = 7000) {
+      async function fetchWithTimeout(url, ms = 7000, externalSignal = null) {
         const ctrl = new AbortController();
         const id = setTimeout(() => ctrl.abort(), ms);
+        const onExternalAbort = () => ctrl.abort();
+        if (externalSignal) {
+          if (externalSignal.aborted) ctrl.abort();
+          else externalSignal.addEventListener("abort", onExternalAbort, { once: true });
+        }
         try {
           const res = await fetch(url, { signal: ctrl.signal });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           return await res.json();
         } finally {
           clearTimeout(id);
+          if (externalSignal) externalSignal.removeEventListener("abort", onExternalAbort);
         }
       }
 
@@ -813,43 +819,69 @@
         el.xzRefCode.textContent = code;
       }
 
+      let activePollCtrl = null;
+      let activePollSeq = 0;
+      let nextPollTimer = null;
+
+      function scheduleNextPoll() {
+        clearTimeout(nextPollTimer);
+        nextPollTimer = setTimeout(() => pollAircraft(), POLL_MS);
+      }
+
       async function pollAircraft() {
+        clearTimeout(nextPollTimer);
+        if (activePollCtrl) activePollCtrl.abort();
+        const ctrl = new AbortController();
+        activePollCtrl = ctrl;
+        const seq = ++activePollSeq;
+
         state.lastPoll = performance.now();
-        if (state.simMode) {
-          ingestAircraft(stepSimFleet(POLL_MS / 1000));
-          el.feedReadout.textContent = "SIMULATION";
-          el.footerStatus.textContent = "SIMULATION ACTIVE";
-          return;
-        }
-
-        const dist = Math.min(250, Math.max(25, state.rangeNm));
-        const urls = [];
-        if (window.location.protocol.startsWith("http")) {
-          urls.push({ name: "ADSB.LOL", url: `/api/adsb?lat=${state.lat.toFixed(4)}&lon=${state.lon.toFixed(4)}&dist=${dist}` });
-        }
-        urls.push({ name: "ADSB.LOL (DIRECT)", url: `https://api.adsb.lol/v2/lat/${state.lat.toFixed(4)}/lon/${state.lon.toFixed(4)}/dist/${dist}` });
-
-        for (const src of urls) {
-          try {
-            const data = await fetchWithTimeout(src.url, 6500);
-            const list = normalizeAdsb(data.ac);
-            ingestAircraft(list);
-            el.feedReadout.textContent = `LIVE:${src.name}`;
-            el.footerStatus.textContent = `SYNC OK [${src.name}] — ${list.length} TRACKS`;
+        try {
+          if (state.simMode) {
+            ingestAircraft(stepSimFleet(POLL_MS / 1000));
+            el.feedReadout.textContent = "SIMULATION";
+            el.footerStatus.textContent = "SIMULATION ACTIVE";
             return;
-          } catch (_) {}
-        }
+          }
 
-        if (window.location.protocol === "file:") {
-          state.simMode = true;
-          document.getElementById("btnSim").classList.add("active");
-          initSimFleet();
-          ingestAircraft(stepSimFleet(1));
-          el.feedReadout.textContent = "SIM (FILE://)";
-          el.footerStatus.textContent = "OPENED VIA FILE:// — RUN launch-xz.bat FOR LIVE DATA";
-        } else {
-          el.feedReadout.textContent = "RETRYING";
-          el.footerStatus.textContent = "FEED ERROR — RETRYING NEXT CYCLE";
+          const dist = Math.min(250, Math.max(25, state.rangeNm));
+          const urls = [];
+          if (window.location.protocol.startsWith("http")) {
+            urls.push({ name: "ADSB.LOL", url: `/api/adsb?lat=${state.lat.toFixed(4)}&lon=${state.lon.toFixed(4)}&dist=${dist}` });
+          }
+          urls.push({ name: "ADSB.LOL (DIRECT)", url: `https://api.adsb.lol/v2/lat/${state.lat.toFixed(4)}/lon/${state.lon.toFixed(4)}/dist/${dist}` });
+
+          for (const src of urls) {
+            if (seq !== activePollSeq) return;
+            try {
+              const data = await fetchWithTimeout(src.url, 7500, ctrl.signal);
+              if (seq !== activePollSeq) return;
+              const list = normalizeAdsb(data.ac);
+              ingestAircraft(list);
+              el.feedReadout.textContent = `LIVE:${src.name}`;
+              el.footerStatus.textContent = `SYNC OK [${src.name}] — ${list.length} TRACKS`;
+              return;
+            } catch (_) {
+              if (seq !== activePollSeq) return;
+            }
+          }
+
+          if (window.location.protocol === "file:") {
+            state.simMode = true;
+            document.getElementById("btnSim").classList.add("active");
+            initSimFleet();
+            ingestAircraft(stepSimFleet(1));
+            el.feedReadout.textContent = "SIM (FILE://)";
+            el.footerStatus.textContent = "OPENED VIA FILE:// — RUN launch-xz.bat FOR LIVE DATA";
+          } else {
+            el.feedReadout.textContent = "RETRYING";
+            el.footerStatus.textContent = "FEED ERROR — RETRYING NEXT CYCLE";
+          }
+        } finally {
+          if (seq === activePollSeq) {
+            activePollCtrl = null;
+            scheduleNextPoll();
+          }
         }
       }
 
@@ -1604,7 +1636,6 @@
       loadWorldMap();
       loadAirports();
       pollAircraft();
-      setInterval(pollAircraft, POLL_MS);
       requestAnimationFrame(render);
     })();
   </script>
